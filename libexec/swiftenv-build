@@ -142,7 +142,6 @@ if [ -n "$VERBOSE" ]; then
   trap "kill $TAIL_PID" SIGINT SIGTERM EXIT
 fi
 
-mkdir -p "$destination"
 trap build_failed ERR
 source "$PACKAGE_DEFINITION"
 
