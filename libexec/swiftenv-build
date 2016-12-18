@@ -4,8 +4,6 @@
 
 set -E
 
-exec 3<&2 # preserve original stderr at fd 3
-
 # fetch_git repository-name branch [destination]
 fetch_git() {
   if ! type git &>/dev/null; then
@@ -54,7 +52,7 @@ build_swift() {
     ;;
   esac
 
-  ./utils/build-script --preset-file=$PACKAGE_BUILD_PRESET --preset=$preset install_destdir="$destination" >&4 2>&1
+  ./utils/build-script --preset-file=$PACKAGE_BUILD_PRESET --preset=$preset install_destdir="$destination" >&3 2>&4
   cd "$TMP"
 }
 
@@ -77,6 +75,7 @@ sort_versions() {
 }
 
 clean=true
+verbose=false
 definitions=false
 
 for args in "$@"; do
@@ -84,6 +83,8 @@ for args in "$@"; do
     clean=false
   elif [ "$args" = "--clean" ]; then
     rehash=true
+  elif [ "$args" = "--verbose" ]; then
+    verbose=true
   elif [ "$args" = "--definitions" ]; then
     definitions=true
   elif [ -z "$package" ]; then
@@ -135,12 +136,14 @@ cd "$TMP"
 SEED="$(date "+%Y%m%d%H%M%S").$$"
 LOG_PATH="$TMP/swiftenv-build.$SEED.log"
 
-exec 4<> "$LOG_PATH"  # open the log file at fd 4
-if [ -n "$VERBOSE" ]; then
-  tail -f "$LOG_PATH" &
-  TAIL_PID=$!
-  trap "kill $TAIL_PID" SIGINT SIGTERM EXIT
+if $verbose; then
+  exec 3>&1 4>&2 
+else
+  exec 3>/dev/null 4>&2
 fi
+
+exec 3>  >(tee -ai "$LOG_PATH" >&3)
+exec 4>  >(tee -ai "$LOG_PATH" >&4)
 
 trap build_failed ERR
 source "$PACKAGE_DEFINITION"
